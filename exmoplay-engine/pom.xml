@@ -1,0 +1,44 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<artifactId>exmoplay</artifactId>
+		<groupId>kokos</groupId>
+		<version>0.1.0-SNAPSHOT</version>
+		<relativePath>..</relativePath>
+	</parent>
+	<artifactId>exmoplay-engine</artifactId>
+	<description>engine of exmoplay, this also contains the player</description>
+	<dependencies>
+		<dependency>
+			<groupId>kokos</groupId>
+			<artifactId>exmoplay-video-access</artifactId>
+			<version>0.1.0-SNAPSHOT</version>
+		</dependency>
+			<dependency>
+				<groupId>com.miglayout</groupId>
+				<artifactId>miglayout</artifactId>
+			</dependency>
+		<dependency>
+			<groupId>com.jogamp</groupId>
+			<artifactId>joal</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.jogamp</groupId>
+			<artifactId>joal-natives-linux-i586</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.jogamp</groupId>
+			<artifactId>gluegen-rt</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.jogamp</groupId>
+			<artifactId>gluegen-rt-natives-linux-i586</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>
