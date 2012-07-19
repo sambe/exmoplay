@@ -12,14 +12,16 @@ import javax.sound.sampled.AudioFormat;
 import exmoplay.access.AudioBuffer;
 import exmoplay.engine.actorframework.Actor;
 import exmoplay.engine.audio.AudioProvider;
-import exmoplay.engine.audio.JoalAudioProvider;
 import exmoplay.engine.audio.AudioProvider.AudioState;
+import exmoplay.engine.audio.JoalAudioProvider;
 import exmoplay.engine.messages.AudioSyncEvent;
 import exmoplay.engine.messages.CachedFrame;
 import exmoplay.engine.messages.ControlCommand;
 import exmoplay.engine.messages.SetSpeed;
 
 public class AudioRenderer extends Actor {
+    private static final boolean DEBUG = false;
+    private static final boolean TRACE = false;
 
     private static final double MIN_SPEED = 0.25;
 
@@ -78,10 +80,14 @@ public class AudioRenderer extends Actor {
     }
 
     private void handleControlCommand(ControlCommand c) {
-        System.out.println("AudioRenderer: receiving ControlCommand: " + c.command);
+        if (DEBUG) {
+            System.out.println("AudioRenderer: receiving ControlCommand: " + c.command);
+        }
         switch (c.command) {
         case START:
-            System.err.println("AudioRenderer: starting...");
+            if (DEBUG) {
+                System.err.println("AudioRenderer: starting...");
+            }
             audioProvider.start();
             break;
         case STOP:
@@ -196,8 +202,10 @@ public class AudioRenderer extends Actor {
                 //System.err.println("DEBUG: Finished playing audio for frame "
                 //        + frameQueue.peek().seqNum);
                 CachedFrame frame = frameQueue.peek();
-                System.out.println("TRACE: " + frame.seqNum + ": " + bytesWritten
-                        + " bytes in audio buffer; video buffer eom?: " + frame.frame.isEndOfMedia());
+                if (TRACE) {
+                    System.out.println("TRACE: " + frame.seqNum + ": " + bytesWritten
+                            + " bytes in audio buffer; video buffer eom?: " + frame.frame.isEndOfMedia());
+                }
                 frameQueue.poll().recycle();
                 bufferPos = 0;
             }

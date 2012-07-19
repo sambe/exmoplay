@@ -31,6 +31,8 @@ import com.xuggle.xuggler.video.ConverterFactory;
 import com.xuggle.xuggler.video.IConverter;
 
 public class XugglerMediaInputStream {
+    private static final boolean DEBUG = false;
+    private static final boolean TRACE = false;
 
     private final File file;
 
@@ -158,25 +160,32 @@ public class XugglerMediaInputStream {
 
         // retrieve some information about the media file
         int numStreams = container.getNumStreams();
-        long duration = container.getDuration();
-
-        System.out.println("number of streams in container: " + numStreams);
-        System.out.println("duration: " + duration);
+        if (DEBUG) {
+            long duration = container.getDuration();
+            System.out.println("number of streams in container: " + numStreams);
+            System.out.println("duration: " + duration);
+        }
 
         for (int i = 0; i < numStreams; i++) {
             IStream stream = container.getStream(i);
             IStreamCoder coder = stream.getStreamCoder();
 
-            System.out.println("Stream " + i + " is of type " + coder.getCodecType());
+            if (DEBUG) {
+                System.out.println("Stream " + i + " is of type " + coder.getCodecType());
+            }
             if (coder.getCodecType() == ICodec.Type.CODEC_TYPE_AUDIO) {
-                System.out.println("audio sample rate: " + coder.getSampleRate());
-                System.out.println("channels: " + coder.getChannels());
-                System.out.println("format: " + coder.getCodec().getLongName());
+                if (DEBUG) {
+                    System.out.println("audio sample rate: " + coder.getSampleRate());
+                    System.out.println("channels: " + coder.getChannels());
+                    System.out.println("format: " + coder.getCodec().getLongName());
+                }
                 audioStream = stream;
             } else if (coder.getCodecType() == ICodec.Type.CODEC_TYPE_VIDEO) {
-                System.out.println("width: " + coder.getWidth());
-                System.out.println("height: " + coder.getHeight());
-                System.out.println("format: " + coder.getCodec().getLongName());
+                if (DEBUG) {
+                    System.out.println("width: " + coder.getWidth());
+                    System.out.println("height: " + coder.getHeight());
+                    System.out.println("format: " + coder.getCodec().getLongName());
+                }
                 videoStream = stream;
             } else {
                 // ignore other streams
@@ -204,7 +213,9 @@ public class XugglerMediaInputStream {
         int audioSampleRate = originalAudioCoder.getSampleRate();
         audioPacketTimeStep = (double) audioPacketSize / bytesPerSample / (double) audioSampleRate;
 
-        System.out.println("audio samples per video frame: " + audioFramesSampleNum);
+        if (DEBUG) {
+            System.out.println("audio samples per video frame: " + audioFramesSampleNum);
+        }
 
         // initialize resampler
         if (videoCoder.getPixelType() != IPixelFormat.Type.BGR24) {
@@ -469,10 +480,10 @@ public class XugglerMediaInputStream {
             officialVideoPosition = (long) (mf.timestamp + frameTime);
         }
 
-        //if (skippedAudioFrames != 0 || skippedVideoFrames != 0) {
-        System.out.println("TRACE: skipped video frames: " + skippedVideoFrames + "; skipped audio frames: "
-                + skippedAudioFrames);
-        //}
+        if (TRACE) {
+            System.out.println("TRACE: skipped video frames: " + skippedVideoFrames + "; skipped audio frames: "
+                    + skippedAudioFrames);
+        }
         //long DEBUG_endMillis = System.currentTimeMillis();
         //System.err.println("TRACE: read media frame in " + (DEBUG_endMillis - DEBUG_startMillis) + "ms");
     }
@@ -530,7 +541,6 @@ public class XugglerMediaInputStream {
         long targetSample = (long) Math.round(finalFrame * exactAudioFramesSampleNum) * bytesPerSample;
         targetAudioPacket = (long) Math.floor(targetSample / audioFrameSize);
         targetAudioBytePos = (int) (targetSample % audioFrameSize);
-        System.out.println("mediaInputStream.setPosition: expected: " + millis + "; micros set: " + targetMicros);
         return millis;
     }
 
@@ -551,7 +561,7 @@ public class XugglerMediaInputStream {
             }
             videoFramesPulled++;
         }
-        if (videoFramesPulled > 0)
+        if (DEBUG && videoFramesPulled > 0)
             System.out.println("DEBUG: pulled " + videoFramesPulled + " old video frames out of decoder!");
     }
 

@@ -14,13 +14,15 @@ import java.util.Queue;
 import exmoplay.engine.actorframework.Actor;
 import exmoplay.engine.messages.CacheBlock;
 import exmoplay.engine.messages.CachedFrame;
+import exmoplay.engine.messages.CachedFrame.CachedFrameState;
 import exmoplay.engine.messages.FetchFrames;
 import exmoplay.engine.messages.FrameRequest;
 import exmoplay.engine.messages.PrefetchRequest;
 import exmoplay.engine.messages.RecyclingBag;
-import exmoplay.engine.messages.CachedFrame.CachedFrameState;
 
 public class FrameCache extends Actor {
+    private static final boolean DEBUG = false;
+    private static final boolean TRACE = false;
 
     // TODO do timing tests to find the optimal value
     private static final int BLOCK_SIZE = 8;
@@ -132,11 +134,15 @@ public class FrameCache extends Actor {
             if (block.state == CachedFrameState.FETCHING) {
                 // already fetching (just queue request for later reply)
                 queuedRequests.add(request);
-                System.err.println("TRACE: " + request.seqNum + ": 1) already fetching -> request queued");
+                if (TRACE) {
+                    System.err.println("TRACE: " + request.seqNum + ": 1) already fetching -> request queued");
+                }
             } else if (block.state == CachedFrameState.IN_USE) {
                 CachedFrame cachedFrame = block.frames[(int) seqNumOffset];
                 request.responseTo.send(cachedFrame);
-                System.err.println("TRACE: " + request.seqNum + ": 2) cached -> immediate reply");
+                if (TRACE) {
+                    System.err.println("TRACE: " + request.seqNum + ": 2) cached -> immediate reply");
+                }
             } else {
                 throw new IllegalStateException("unexpected state of cachedFrame: " + block.state);
             }
@@ -144,7 +150,9 @@ public class FrameCache extends Actor {
             if (request.onlyIfFreeResources && unusedLRU.size() < CACHE_MIN_RESERVE) {
                 // put on a special waiting slot, where it might be replaced by any later
                 requestForIdleProcessing = request;
-                System.err.println("TRACE: " + baseSeqNum + ": 3) capacity full -> waiting bench");
+                if (TRACE) {
+                    System.err.println("TRACE: " + baseSeqNum + ": 3) capacity full -> waiting bench");
+                }
             } else {
                 // if a onlyIfFreeResources request gets executed again, the previous must be outdated
                 if (request.onlyIfFreeResources) {
@@ -153,7 +161,9 @@ public class FrameCache extends Actor {
                 requestFramesFromFetcher(baseSeqNum, request.usageCount);
                 // queue request for later answer
                 queuedRequests.add(request);
-                System.err.println("TRACE: " + baseSeqNum + ": 4) now fetching -> request queued");
+                if (TRACE) {
+                    System.err.println("TRACE: " + baseSeqNum + ": 4) now fetching -> request queued");
+                }
             }
         }
     }
@@ -247,7 +257,9 @@ public class FrameCache extends Actor {
     }
 
     private CacheBlock getUnusedFromCache() {
-        System.err.println("DEBUG: Unused cache blocks available: " + unusedLRU.size());
+        if (DEBUG) {
+            System.err.println("DEBUG: Unused cache blocks available: " + unusedLRU.size());
+        }
         if (unusedLRU.isEmpty()) {
             //DEBUG_cacheCounter.printStatistics();
             throw new IllegalStateException("No cache block available to reuse");

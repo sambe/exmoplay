@@ -25,8 +25,9 @@ import com.jogamp.openal.util.ALut;
  * @author Samuel Berner
  */
 public class JoalAudioProvider implements AudioProvider {
+    private static final boolean DEBUG = false;
 
-    static AL al = null;
+    private static AL al = null;
 
     static {
         // Initialize OpenAL and clear the error bit.
@@ -45,13 +46,6 @@ public class JoalAudioProvider implements AudioProvider {
             e.printStackTrace();
         }
 
-    }
-
-    private static boolean debug = true;
-
-    private static void debugMsg(String str) {
-        if (debug)
-            System.err.println(str);
     }
 
     // The size of a chunk from the stream that we want to read for each update.
@@ -110,8 +104,10 @@ public class JoalAudioProvider implements AudioProvider {
 
         rate = (int) audioFormat.getSampleRate();
 
+        if (DEBUG) {
         System.err.println("DEBUG: #Buffers: " + NUM_BUFFERS);
         System.err.println("DEBUG: Format: 0x" + Integer.toString(format, 16));
+        }
 
         al.alGenBuffers(NUM_BUFFERS, buffers, 0);
         check();
@@ -163,7 +159,9 @@ public class JoalAudioProvider implements AudioProvider {
         int[] queued = new int[1];
 
         al.alGetSourcei(source[0], AL.AL_BUFFERS_QUEUED, queued, 0);
-        debugMsg("Unqueing all queued buffers (" + queued[0] + ")");
+        if (DEBUG) {
+            System.err.println("Unqueing all queued buffers (" + queued[0] + ")");
+        }
 
         while (queued[0] > 0) {
             int[] buffer = new int[1];
@@ -231,7 +229,9 @@ public class JoalAudioProvider implements AudioProvider {
     private void start_() {
         al.alSourcePlay(source[0]);
         if (al.alGetError() == AL.AL_NO_ERROR) {
-            debugMsg("Started playback");
+            if (DEBUG) {
+            System.err.println("Started playback");
+            }
             if (syncEvent) {
                 syncEvent = false;
                 notifyAudioStateListeners(AudioState.PLAYING);
@@ -298,7 +298,9 @@ public class JoalAudioProvider implements AudioProvider {
                 if (buffer[0] != buffers[bufferUnqueuedNext])
                     throw new IllegalStateException("Unexpected buffer unqueued: expected: " + bufferUnqueuedNext
                             + "; actual: " + buffer[0]);
-                debugMsg("Unqueued buffer " + bufferUnqueuedNext);
+                if (DEBUG) {
+                System.err.println("Unqueued buffer " + bufferUnqueuedNext);
+                }
                 bufferUnqueuedNext = (bufferUnqueuedNext + 1) % NUM_BUFFERS;
                 processed[0]--;
             }
@@ -309,7 +311,9 @@ public class JoalAudioProvider implements AudioProvider {
                     throw new IllegalStateException("Flushed, but not all buffers were unqueued");
                 actualPlaying = false;
                 prefetched = 0;
-                debugMsg("Actual playback has stopped (all buffers processed): reset to restart");
+                if (DEBUG) {
+                System.err.println("Actual playback has stopped (all buffers processed): reset to restart");
+                }
             }
         }
     }
@@ -336,13 +340,17 @@ public class JoalAudioProvider implements AudioProvider {
             ByteBuffer dataBuffer = ByteBuffer.wrap(data, offset, bytesToWrite);
             al.alBufferData(buffers[bufferQueuedNext], format, dataBuffer, bytesToWrite, rate);
             check();
-            debugMsg("Wrote " + bytesToWrite + " bytes to buffer " + bufferQueuedNext);
+            if (DEBUG) {
+            System.err.println("Wrote " + bytesToWrite + " bytes to buffer " + bufferQueuedNext);
+            }
 
             // to play buffer must be queued
             al.alSourceQueueBuffers(source[0], 1, buffers, bufferQueuedNext);
             check();
             bufferIsQueued[bufferQueuedNext] = true;
-            debugMsg("Queued buffer " + bufferQueuedNext);
+            if (DEBUG) {
+            System.err.println("Queued buffer " + bufferQueuedNext);
+            }
             if (bufferUnqueuedNext == -1)
                 bufferUnqueuedNext = bufferQueuedNext;
             bufferQueuedNext = (bufferQueuedNext + 1) % NUM_BUFFERS;

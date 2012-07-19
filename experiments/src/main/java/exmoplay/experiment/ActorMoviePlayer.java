@@ -14,6 +14,8 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 
 import exmoplay.access.AudioBuffer;
+import exmoplay.access.MediaAnalyzer;
+import exmoplay.access.MediaInfo;
 import exmoplay.access.VideoBuffer;
 import exmoplay.engine.FrameCache;
 import exmoplay.engine.FrameFetcher;
@@ -54,7 +56,9 @@ public class ActorMoviePlayer {
                 }
             }
         };
-        FrameFetcher frameFetcher = new FrameFetcher(errorHandler, new File("/home/sberner/Desktop/10-21.04.09.flv"));
+        File videoFile = new File("/home/sberner/Desktop/10-21.04.09.flv");
+        MediaInfo mediaInfo = MediaAnalyzer.analyze(videoFile);
+        FrameFetcher frameFetcher = new FrameFetcher(errorHandler, videoFile, mediaInfo);
         FrameCache frameCache = new FrameCache(errorHandler, frameFetcher);
 
         errorHandler.start();

@@ -9,6 +9,8 @@ import java.io.File;
 import javax.swing.JPanel;
 
 import net.miginfocom.swing.MigLayout;
+import exmoplay.access.MediaAnalyzer;
+import exmoplay.access.MediaInfo;
 import exmoplay.engine.Controller;
 import exmoplay.engine.VideoRenderer;
 import exmoplay.engine.actorframework.Actor;
@@ -47,7 +49,9 @@ public class ActorMoviePlayer2 {
 
         videoRenderer.send(new CurrentScreen(screen));
 
-        controller.send(new NewVideo(new File("/home/sberner/Desktop/10-21.04.09.flv")));
+        File videoFile = new File("/home/sberner/Desktop/10-21.04.09.flv");
+        MediaInfo mediaInfo = MediaAnalyzer.analyze(videoFile);
+        controller.send(new NewVideo(videoFile, mediaInfo));
         controller.send(new SetPosition(0));
 
         Thread.sleep(20000);

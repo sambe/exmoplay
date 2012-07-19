@@ -13,6 +13,7 @@ import exmoplay.engine.actorframework.ObjectReceiver;
 import exmoplay.engine.messages.AudioSyncEvent;
 import exmoplay.engine.messages.CachedFrame;
 import exmoplay.engine.messages.ControlCommand;
+import exmoplay.engine.messages.ControlCommand.Command;
 import exmoplay.engine.messages.FrameRequest;
 import exmoplay.engine.messages.MediaInfoRequest;
 import exmoplay.engine.messages.MediaInfoResponse;
@@ -23,9 +24,10 @@ import exmoplay.engine.messages.SetSpeed;
 import exmoplay.engine.messages.StateUpdate;
 import exmoplay.engine.messages.StatusRequest;
 import exmoplay.engine.messages.StatusResponse;
-import exmoplay.engine.messages.ControlCommand.Command;
 
 public class Controller extends Actor {
+    private static final boolean DEBUG = false;
+    private static final boolean TRACE = false;
 
     private static final int DEFAULT_PREFETCH_SIZE = 5;
     private static final int MAX_EXPECTED_PREFETCH_SIZE = DEFAULT_PREFETCH_SIZE * 4;
@@ -169,7 +171,7 @@ public class Controller extends Actor {
             audioRenderer.stop();
         }
 
-        frameFetcher = new FrameFetcher(errorHandler, message.videoFile);
+        frameFetcher = new FrameFetcher(errorHandler, message.videoFile, message.mediaInfo);
         frameCache = new FrameCache(errorHandler, frameFetcher);
 
         frameFetcher.start();
@@ -466,8 +468,10 @@ public class Controller extends Actor {
                 restartNeeded = restartNeeded || cons.running;
             }
 
-            System.out.println("DEBUG: runningStateChanged = " + runningStateChanged + "; restartNeeded = "
-                    + restartNeeded + "; already running = " + timer.isRunning());
+            if (DEBUG) {
+                System.out.println("DEBUG: runningStateChanged = " + runningStateChanged + "; restartNeeded = "
+                        + restartNeeded + "; already running = " + timer.isRunning());
+            }
 
             engineCons.copyFrom(cons);
 
@@ -493,7 +497,9 @@ public class Controller extends Actor {
         }
 
         private void handleCachedFrame(CachedFrame frame) {
-            System.out.println("TRACE: " + frame.seqNum + " received in controller");
+            if (TRACE) {
+                System.out.println("TRACE: " + frame.seqNum + " received in controller");
+            }
             if (state == State.PREPARING || state == State.PLAYING) {
                 if (timer.speed > 0.0
                         && (frame.seqNum < nextSeqNumExpected || frame.seqNum > nextSeqNumExpected
@@ -501,8 +507,10 @@ public class Controller extends Actor {
                         || timer.speed < 0.0
                         && (frame.seqNum > nextSeqNumExpected || frame.seqNum < nextSeqNumExpected
                                 - engineCons.prefetchSize)) {
-                    System.out.println("DEBUG: dropping frame " + frame.seqNum + " because expected "
-                            + nextSeqNumExpected);
+                    if (DEBUG) {
+                        System.out.println("DEBUG: dropping frame " + frame.seqNum + " because expected "
+                                + nextSeqNumExpected);
+                    }
                     // silently drop (was too late, no longer needed)
                     recycle(frame, USAGE_COUNT);
                     return;
@@ -524,7 +532,9 @@ public class Controller extends Actor {
                     }
                     nextSeqNumExpected = newSeqNum;
                 }
-                System.out.println("TRACE: " + frame.seqNum + ": added to queued frames");
+                if (TRACE) {
+                    System.out.println("TRACE: " + frame.seqNum + ": added to queued frames");
+                }
                 queuedFrames.add(frame);
                 if (!engineCons.mute) {
                     audioRenderer.send(frame);
@@ -547,7 +557,9 @@ public class Controller extends Actor {
         }
 
         public void prefetch(long positionSeqNum) {
-            System.out.println("DEBUG: " + positionSeqNum + ": prefetching");
+            if (DEBUG) {
+                System.out.println("DEBUG: " + positionSeqNum + ": prefetching");
+            }
             nextSeqNumExpected = positionSeqNum;
             long speedDirection = timer.getSpeedDirection();
             int maxN;
@@ -619,10 +631,20 @@ public class Controller extends Actor {
                     if (timer.isFirstBeforeSecondOrEqual(frameSeqNum, currentSeqNum)) { // <= 
                         CachedFrame frame = queuedFrames.poll();
                         // if speed 2 or above, only display every second frame, 4 or above only display every 4th
-                        if (timer.getSpeed() < 2.0 ||
-                                timer.getSpeed() < 3.0 && frame.seqNum % 2 == 0 ||
-                                timer.getSpeed() < 4.0 && frame.seqNum % 3 == 0 ||
-                                frame.seqNum % 4 == 0) {
+                        // but always display if it was the last in the queue
+                        boolean toDisplay;
+                        if (timer.getSpeed() < 2.0 || queuedFrames.isEmpty())
+                            toDisplay = true;
+                        else if (timer.getSpeed() < 3.0)
+                            toDisplay = frame.seqNum % 2 == 0;
+                        else if (timer.getSpeed() < 4.0)
+                            toDisplay = frame.seqNum % 3 == 0;
+                        else
+                            toDisplay = frame.seqNum % 4 == 0;
+                        if (toDisplay) {
+                            if (TRACE) {
+                                System.out.println("TRACE: " + frame.seqNum + ": sent to video renderer");
+                            }
                             videoRenderer.send(frame);
                         } else {
                             frame.recycle();
@@ -631,7 +653,9 @@ public class Controller extends Actor {
                         if (prefetchSeqNum >= engineCons.startFrameSeqNum
                                 && prefetchSeqNum <= engineCons.endFrameSeqNum) {
                             sendFetchRequest(prefetchSeqNum, false);
-                            System.out.println("TRACE: " + prefetchSeqNum + ": sent fetch request");
+                            if (TRACE) {
+                                System.out.println("TRACE: " + prefetchSeqNum + ": sent fetch request");
+                            }
                         }
                         // event must be sent with min and max of control (user is not aware of inner timerMin and timerMax)
                         if (engineCons.positionUpdates) {

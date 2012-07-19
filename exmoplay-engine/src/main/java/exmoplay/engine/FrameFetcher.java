@@ -8,6 +8,7 @@ import java.io.File;
 
 import javax.sound.sampled.AudioFormat;
 
+import exmoplay.access.MediaInfo;
 import exmoplay.access.VideoFormat;
 import exmoplay.access.XugglerMediaInputStream;
 import exmoplay.engine.actorframework.Actor;
@@ -18,19 +19,23 @@ import exmoplay.engine.messages.MediaInfoRequest;
 import exmoplay.engine.messages.MediaInfoResponse;
 
 public class FrameFetcher extends Actor {
+    private static final boolean DEBUG = false;
+    private static final boolean TRACE = false;
 
     private XugglerMediaInputStream mediaInputStream;
     private final File mediaFile;
+    private final MediaInfo mediaInfo;
     private double frameRate = 0;
 
-    public FrameFetcher(Actor errorHandler, File mediaFile) {
+    public FrameFetcher(Actor errorHandler, File mediaFile, MediaInfo mediaInfo) {
         super(errorHandler, -1);
         this.mediaFile = mediaFile;
+        this.mediaInfo = mediaInfo;
     }
 
     @Override
     protected void init() throws Exception {
-        mediaInputStream = new XugglerMediaInputStream(mediaFile);
+        mediaInputStream = new XugglerMediaInputStream(mediaFile, mediaInfo);
         frameRate = mediaInputStream.getVideoFormat().getFrameRate();
     }
 
@@ -56,9 +61,11 @@ public class FrameFetcher extends Actor {
         // set position and find seq nr
         long position = (long) (1000.0 * block.baseSeqNum / frameRate);
         long actualPosition = mediaInputStream.setPosition(position);
-        System.out.println("TRACE: " + block.baseSeqNum + ": fetching at position " + position
-                + "ms and was positionioned at " + actualPosition + "ms (difference " + (actualPosition - position)
-                + "ms)");
+        if (TRACE) {
+            System.out.println("TRACE: " + block.baseSeqNum + ": fetching at position " + position
+                    + "ms and was positionioned at " + actualPosition + "ms (difference " + (actualPosition - position)
+                    + "ms)");
+        }
         long afterSetPositionMillis = System.currentTimeMillis();
         long startSeqNr = block.baseSeqNum; //Math.round(newPosition * frameRate);
 
@@ -75,8 +82,10 @@ public class FrameFetcher extends Actor {
         long endMillis = System.currentTimeMillis();
         double seekingSeconds = (afterSetPositionMillis - startMillis) / 1000.0;
         double totalSeconds = (endMillis - startMillis) / 1000.0;
-        System.out.println("DEBUG: " + block.baseSeqNum + ": total fetch time " + totalSeconds + "s (seeking "
-                + seekingSeconds + "s)");
+        if (DEBUG) {
+            System.out.println("DEBUG: " + block.baseSeqNum + ": total fetch time " + totalSeconds + "s (seeking "
+                    + seekingSeconds + "s)");
+        }
     }
 
     private void handleMediaInfoRequest(MediaInfoRequest message) {

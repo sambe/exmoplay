@@ -9,6 +9,7 @@ import java.io.File;
 import javax.sound.sampled.AudioFormat;
 import javax.swing.SwingUtilities;
 
+import exmoplay.access.MediaInfo;
 import exmoplay.access.VideoFormat;
 import exmoplay.engine.actorframework.Actor;
 import exmoplay.engine.actorframework.MessageSendable;
@@ -68,20 +69,20 @@ public class MediaPlayer {
         videoRenderer.send(new CurrentScreen(screen));
     }
 
-    public void openVideo(File file) {
-        openVideo(new NewVideo(file));
+    public void openVideo(File file, MediaInfo mediaInfo) {
+        openVideo(new NewVideo(file, mediaInfo));
     }
 
-    public void openVideo(File file, long initialPosition) {
-        openVideo(new NewVideo(file, initialPosition));
+    public void openVideo(File file, MediaInfo mediaInfo, long initialPosition) {
+        openVideo(new NewVideo(file, mediaInfo, initialPosition));
     }
 
-    public void openVideo(File file, long timerMin, long timerMax) {
-        openVideo(new NewVideo(file, timerMin, timerMax));
+    public void openVideo(File file, MediaInfo mediaInfo, long timerMin, long timerMax) {
+        openVideo(new NewVideo(file, mediaInfo, timerMin, timerMax));
     }
 
-    public void openVideo(File file, long initialPosition, long timerMin, long timerMax) {
-        openVideo(new NewVideo(file, initialPosition, timerMin, timerMax));
+    public void openVideo(File file, MediaInfo mediaInfo, long initialPosition, long timerMin, long timerMax) {
+        openVideo(new NewVideo(file, mediaInfo, initialPosition, timerMin, timerMax));
     }
 
     private void openVideo(NewVideo message) {
