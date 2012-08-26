@@ -14,6 +14,7 @@ import exmoplay.access.MediaInfo;
 import exmoplay.engine.Controller;
 import exmoplay.engine.VideoRenderer;
 import exmoplay.engine.actorframework.Actor;
+import exmoplay.engine.actorframework.Actor.Priority;
 import exmoplay.engine.messages.CurrentScreen;
 import exmoplay.engine.messages.MediaError;
 import exmoplay.engine.messages.NewVideo;
@@ -26,7 +27,7 @@ import exmoplay.experiment.util.SimplePanelFrame;
 public class ActorMoviePlayer2 {
 
     public static void main(String[] args) throws Exception {
-        Actor errorHandler = new Actor(null, -1) {
+        Actor errorHandler = new Actor(null, -1, Priority.NORM) {
             @Override
             protected void act(Object message) {
                 if (message instanceof MediaError) {

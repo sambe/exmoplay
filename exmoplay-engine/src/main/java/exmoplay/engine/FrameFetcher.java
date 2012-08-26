@@ -28,7 +28,7 @@ public class FrameFetcher extends Actor {
     private double frameRate = 0;
 
     public FrameFetcher(Actor errorHandler, File mediaFile, MediaInfo mediaInfo) {
-        super(errorHandler, -1);
+        super(errorHandler, -1, Priority.NORM);
         this.mediaFile = mediaFile;
         this.mediaInfo = mediaInfo;
     }

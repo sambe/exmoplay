@@ -47,7 +47,7 @@ public class FrameCache extends Actor {
     // 5) track which buffers are still in use (cannot reload them, until returned)
 
     public FrameCache(Actor errorHandler, FrameFetcher frameFetcher) {
-        super(errorHandler, -1);
+        super(errorHandler, -1, Priority.NORM);
         this.frameFetcher = frameFetcher;
 
         cacheBlocks = new CacheBlock[N_CACHE_BLOCKS];

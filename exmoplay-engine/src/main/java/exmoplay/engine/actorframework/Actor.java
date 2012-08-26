@@ -28,12 +28,24 @@ public abstract class Actor implements MessageSendable {
 
     private final int idleNanos;
 
-    protected Actor(Actor errorHandler, int idleNanos) {
+    public enum Priority {
+        MIN(Thread.MIN_PRIORITY),
+        NORM(Thread.NORM_PRIORITY),
+        MAX(Thread.MAX_PRIORITY);
+        public final int priorityCode;
+
+        Priority(int priorityCode) {
+            this.priorityCode = priorityCode;
+        }
+    }
+
+    protected Actor(Actor errorHandler, int idleNanos, Priority priority) {
         String className = this.getClass().getSimpleName();
         if (className.equals("")) {
             className = "Anonymous Actor";
         }
         thread = new Thread(new ActorRunnable(), className);
+        thread.setPriority(priority.priorityCode);
         queue = new ConcurrentLinkedQueue<Object>();
         this.errorHandler = errorHandler;
         updateReceivers = new HashMap<Class, List<MessageSendable>>();

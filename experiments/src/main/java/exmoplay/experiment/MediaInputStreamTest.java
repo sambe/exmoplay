@@ -20,6 +20,7 @@ import exmoplay.access.MediaFrame;
 import exmoplay.access.VideoFormat;
 import exmoplay.access.XugglerMediaInputStream;
 import exmoplay.engine.actorframework.Actor;
+import exmoplay.engine.actorframework.Actor.Priority;
 import exmoplay.engine.messages.MediaError;
 import exmoplay.experiment.util.SimplePanelFrame;
 
@@ -56,7 +57,7 @@ public class MediaInputStreamTest {
         final SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info);
         line.open(audioFormat);
         line.start();
-        Actor errorHandler = new Actor(null, -1) {
+        Actor errorHandler = new Actor(null, -1, Priority.NORM) {
             @Override
             protected void act(Object message) {
                 if (message instanceof MediaError) {
@@ -69,7 +70,7 @@ public class MediaInputStreamTest {
             }
         };
         errorHandler.start();
-        Actor recycler = new Actor(errorHandler, -1) {
+        Actor recycler = new Actor(errorHandler, -1, Priority.NORM) {
             @Override
             protected void act(Object message) {
                 // do nothing

@@ -20,6 +20,7 @@ import exmoplay.access.VideoBuffer;
 import exmoplay.engine.FrameCache;
 import exmoplay.engine.FrameFetcher;
 import exmoplay.engine.actorframework.Actor;
+import exmoplay.engine.actorframework.Actor.Priority;
 import exmoplay.engine.actorframework.ObjectReceiver;
 import exmoplay.engine.messages.CachedFrame;
 import exmoplay.engine.messages.FrameRequest;
@@ -44,7 +45,7 @@ public class ActorMoviePlayer {
      */
     public static void main(String[] args) throws Exception {
 
-        Actor errorHandler = new Actor(null, -1) {
+        Actor errorHandler = new Actor(null, -1, Priority.NORM) {
             @Override
             protected void act(Object message) {
                 if (message instanceof MediaError) {

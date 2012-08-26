@@ -12,6 +12,7 @@ import javax.swing.SwingUtilities;
 import exmoplay.access.MediaInfo;
 import exmoplay.access.VideoFormat;
 import exmoplay.engine.actorframework.Actor;
+import exmoplay.engine.actorframework.Actor.Priority;
 import exmoplay.engine.actorframework.MessageSendable;
 import exmoplay.engine.actorframework.ObjectReceiver;
 import exmoplay.engine.actorframework.RegisterForUpdates;
@@ -33,7 +34,7 @@ import exmoplay.engine.ui.VideoScreen;
 
 public class MediaPlayer {
 
-    private Actor errorHandler = new Actor(null, -1) {
+    private Actor errorHandler = new Actor(null, -1, Priority.MIN) {
         @Override
         protected void act(Object message) {
             if (message instanceof MediaError) {

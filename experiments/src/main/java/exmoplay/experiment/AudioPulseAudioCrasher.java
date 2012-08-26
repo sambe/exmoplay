@@ -15,15 +15,16 @@ import exmoplay.access.XugglerMediaInputStream;
 import exmoplay.engine.AudioRenderer;
 import exmoplay.engine.FrameCache;
 import exmoplay.engine.actorframework.Actor;
+import exmoplay.engine.actorframework.Actor.Priority;
 import exmoplay.engine.messages.CachedFrame;
 import exmoplay.engine.messages.ControlCommand;
-import exmoplay.engine.messages.MediaError;
 import exmoplay.engine.messages.ControlCommand.Command;
+import exmoplay.engine.messages.MediaError;
 
 public class AudioPulseAudioCrasher {
 
     public static void main(String[] args) throws Exception {
-        Actor errorHandler = new Actor(null, -1) {
+        Actor errorHandler = new Actor(null, -1, Priority.NORM) {
             @Override
             protected void act(Object message) {
                 if (message instanceof MediaError) {

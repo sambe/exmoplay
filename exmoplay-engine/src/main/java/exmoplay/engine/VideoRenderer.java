@@ -26,7 +26,7 @@ public class VideoRenderer extends Actor {
     private Image currentImage;
 
     public VideoRenderer(Actor errorHandler) {
-        super(errorHandler, -1);
+        super(errorHandler, -1, Priority.MAX);
     }
 
     @Override

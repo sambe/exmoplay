@@ -124,7 +124,7 @@ public class Controller extends Actor {
     private State state;
 
     public Controller(Actor errorHandler) {
-        super(errorHandler, 10000000);
+        super(errorHandler, 10000000, Priority.MAX);
         this.errorHandler = errorHandler;
 
         videoRenderer = new VideoRenderer(errorHandler);
