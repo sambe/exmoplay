@@ -32,7 +32,7 @@ public class Controller extends Actor {
     private static final int DEFAULT_PREFETCH_SIZE = 5;
     private static final int MAX_EXPECTED_PREFETCH_SIZE = DEFAULT_PREFETCH_SIZE * 4;
     private static final int USAGE_COUNT = 2;
-    private static final int SYNC_OFFSET = 50; //250;
+    private static final int SYNC_OFFSET = 700; //250; TODO find out why this magic constant
     private static final double MIN_VALID_SPEED = 1.0 / 40.0;
     private static final double ANIMATION_SPEED = 2.0;
 
@@ -60,7 +60,6 @@ public class Controller extends Actor {
 
     private Engine engine = new Engine();
 
-    // TODO this block should go into the PlayConstraints
     private class PlayConstraints {
         boolean running = false;
         long timerMin = -1;
@@ -164,7 +163,6 @@ public class Controller extends Actor {
 
             frameCache.stop();
             frameFetcher.stopAndWait(); // TODO rather try to see if it is possible to keep the frame fetcher actor and just send it a message to change
-            // TODO another potential cause of crashes: a frame that is still being fetched, might be deleted by the cache
 
             engine.stop();
 

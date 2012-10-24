@@ -16,7 +16,7 @@ public class CachedFrame {
 
     public enum CachedFrameState {
         /**
-         * When no yet initialized (does not yet contain a buffer)
+         * When not yet initialized (does not yet contain a buffer)
          */
         EMPTY,
         /**

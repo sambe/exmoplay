@@ -14,8 +14,6 @@ import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
 
-import exmoplay.access.MediaFrame;
-import exmoplay.access.XugglerMediaInputStream;
 import exmoplay.access.util.ImageViewer;
 import exmoplay.access.util.SoundViewer;
 
@@ -88,7 +86,7 @@ public class XugglerMediaInputStreamTest {
     @Test
     public void testSetPosition() throws Exception {
         int numOfPositions = 50;
-        File movieFile = new File("/home/sberner/Desktop/10-07.04.09.flv");
+        //File movieFile = new File("/home/sberner/Desktop/10-07.04.09.flv");
         //File movieFile = new File("/home/sberner/Desktop/10-21.04.09.flv");
         //File movieFile = new File("/home/sberner/Desktop/10-31.03.09.flv");
         // problem: sound different (no similarity visible, no difference visible)
@@ -98,6 +96,8 @@ public class XugglerMediaInputStreamTest {
 
         //File movieFile = new File("/home/sberner/media/salsavids/m2/MOV00356.MP4");
         //File movieFile = new File("/home/sberner/Desktop/10-07.04.09.flv");
+        File movieFile = new File("/home/samuel/Desktop/Wildlife.wmv");
+
         XugglerMediaInputStream is = new XugglerMediaInputStream(movieFile);
         try {
 

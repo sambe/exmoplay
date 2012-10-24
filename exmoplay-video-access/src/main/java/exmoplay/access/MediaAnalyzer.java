@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import com.xuggle.xuggler.IAudioSamples;
@@ -20,9 +21,14 @@ import com.xuggle.xuggler.IStreamCoder;
 import com.xuggle.xuggler.IStreamCoder.Direction;
 import com.xuggle.xuggler.IVideoPicture;
 
+import exmoplay.access.MediaInfo.AudioSamplesInfo;
+import exmoplay.access.MediaInfo.VideoPictureInfo;
+
 public class MediaAnalyzer {
 
     private static final long END_OF_MEDIA = -541478725L;
+    private static final long OPERATION_NOT_PERMITTED = -1L; // can happen at end of video
+    public static final long MP2_HEADER_MISSING = -1094995529L; // can happen when decoding audio
 
     public static MediaInfo analyze(File file) throws IOException {
         IContainer container = null;
@@ -72,18 +78,20 @@ public class MediaAnalyzer {
             long duration = container.getDuration();
             long lastTimestamp = -1;
 
-            // find key frames
+            // find key frames in video stream
             List<Long> keyFrameTimestamps = new ArrayList<Long>();
             List<Double> calculatedFrameRates = new ArrayList<Double>();
             int videoPacketCount = 0;
+            int audioPacketCount = 0;
             while (true) {
                 int errorNum;
                 if ((errorNum = container.readNextPacket(packet)) < 0) {
-                    if (errorNum == END_OF_MEDIA) {
+                    if (errorNum == END_OF_MEDIA || errorNum == OPERATION_NOT_PERMITTED) {
                         break;
                     } else {
                         IError error = IError.make(errorNum);
-                        throw new RuntimeException("error reading packet: " + error.getDescription());
+                        throw new RuntimeException("error reading packet: " + error.getDescription() + "(" + errorNum
+                                + ")");
                     }
                 }
 
@@ -99,8 +107,12 @@ public class MediaAnalyzer {
                         }
                     }
                     videoPacketCount++;
+                } else if (packet.getStreamIndex() == audioStreamIndex) {
+                    audioPacketCount++;
                 }
             }
+            System.out.println("Totally " + videoPacketCount + " video packets and " + audioPacketCount
+                    + " audio packets.");
 
             // check calculated frame rates
             double selectedFrameRate = calculatedFrameRates.get(calculatedFrameRates.size() - 1);
@@ -115,6 +127,8 @@ public class MediaAnalyzer {
             double audioPacketTimeBase = Double.NaN;
             double pictureTimeBase = Double.NaN;
             double samplesTimeBase = Double.NaN;
+            List<AudioSamplesInfo> audioSamplesInfoList = new LinkedList<MediaInfo.AudioSamplesInfo>();
+            List<VideoPictureInfo> videoPictureInfoList = new LinkedList<MediaInfo.VideoPictureInfo>();
             int audioFrameSize = -1;
             if (keyFrameTimestamps.size() >= 2) {
                 IStreamCoder audioDecoder = null;
@@ -140,16 +154,23 @@ public class MediaAnalyzer {
                     boolean firstVideoPacket = true;
                     double audioPacketTime = Double.NaN;
                     double videoPacketTime = Double.NaN;
+                    long videoFrameIndex = 0;
+                    boolean firstVideoMeasurementDone = false;
+                    boolean secondVideoMeasurementDone = false;
+                    double firstVideoTimeStamp = Double.NaN;
+                    double secondVideoTimeStamp = Double.NaN;
 
-                    while (!audioComplete || !videoComplete) {
+                    long audioSamplesOffset = 0;
+
+                    while (true) {
                         int error;
                         if ((error = container.readNextPacket(packet)) < 0) {
-                            if (error == END_OF_MEDIA)
+                            if (error == END_OF_MEDIA || error == OPERATION_NOT_PERMITTED)
                                 break;
                             throw new RuntimeException("error reading packet: " + IError.make(error).getDescription());
                         }
 
-                        if (!audioComplete && packet.getStreamIndex() == audioStreamIndex) {
+                        if (packet.getStreamIndex() == audioStreamIndex) {
                             if (firstAudioPacket) {
                                 audioPacketTimeBase = packet.getTimeBase().getValue();
                                 audioPacketTime = packet.getTimeStamp() * audioPacketTimeBase;
@@ -158,18 +179,27 @@ public class MediaAnalyzer {
                             int offset = 0;
                             while (offset < packet.getSize()) {
                                 int bytesDecoded = audioDecoder.decodeAudio(audioSamples, packet, offset);
-                                if (bytesDecoded < 0)
+                                if (bytesDecoded < 0) {
+                                    if (bytesDecoded == MP2_HEADER_MISSING) {
+                                        offset = packet.getSize(); // assume it was consumed to skip it
+                                        break;
+                                    }
                                     throw new RuntimeException("error decoding audio");
+                                }
                                 offset += bytesDecoded;
 
                                 if (audioSamples.isComplete()) {
-                                    samplesTimeBase = audioPacketTime / audioSamples.getTimeStamp();
+                                    audioSamplesInfoList.add(new AudioSamplesInfo(audioSamplesInfoList.size(),
+                                            audioSamples.getTimeStamp(), audioSamplesOffset, audioSamples.getSize()));
+                                    audioSamplesOffset += audioSamples.getSize();
+
+                                    samplesTimeBase = audioSamples.getTimeBase().getValue();
                                     audioFrameSize = audioSamples.getSize();
                                     audioComplete = true;
                                     break;
                                 }
                             }
-                        } else if (!videoComplete && packet.getStreamIndex() == videoStreamIndex) {
+                        } else if (packet.getStreamIndex() == videoStreamIndex) {
                             if (firstVideoPacket) {
                                 videoPacketTimeBase = packet.getTimeBase().getValue();
                                 videoPacketTime = packet.getTimeStamp() * videoPacketTimeBase;
@@ -183,9 +213,23 @@ public class MediaAnalyzer {
                                 offset += bytesDecoded;
 
                                 if (videoPicture.isComplete()) {
-                                    pictureTimeBase = videoPacketTime / videoPicture.getTimeStamp();
-                                    videoComplete = true;
-                                    break;
+                                    videoPictureInfoList.add(new VideoPictureInfo(videoPictureInfoList.size(),
+                                            videoPicture.getTimeStamp(), videoPicture.isKey()));
+
+                                    // cannot take videoPicture.getTimeBase() here, because for some videos (mobile MP4), the timebase referred to milliseconds instead of seconds
+                                    pictureTimeBase = videoPicture.getTimeStamp()
+                                            / (videoFrameIndex / averageFrameRate);
+                                    videoFrameIndex++;
+                                    if (!firstVideoMeasurementDone && videoFrameIndex > averageFrameRate) {
+                                        firstVideoTimeStamp = videoPicture.getTimeStamp();
+                                        firstVideoMeasurementDone = true;
+                                    }
+                                    if (!secondVideoMeasurementDone && videoFrameIndex > 2 * averageFrameRate) {
+                                        secondVideoTimeStamp = videoPicture.getTimeStamp();
+                                        secondVideoMeasurementDone = true;
+                                        videoComplete = true;
+                                    }
+                                    //break;
                                 }
                             }
                         } else {
@@ -197,6 +241,9 @@ public class MediaAnalyzer {
                     // commented out, because there are videos without audio
                     //if (!audioComplete)
                     //    throw new IllegalStateException("no complete audio frame was found for video " + file);
+
+                    pictureTimeBase = 1.0 / (secondVideoTimeStamp - firstVideoTimeStamp);
+
                 } finally {
                     if (audioDecoder != null && audioDecoder.isOpen())
                         audioDecoder.close();
@@ -211,8 +258,8 @@ public class MediaAnalyzer {
             pictureTimeBase = 1.0 / (Math.round(1.0 / pictureTimeBase * 1000.0) / 1000.0);
             samplesTimeBase = 1.0 / (Math.round(1.0 / samplesTimeBase * 1000.0) / 1000.0);
 
-            return new MediaInfo(keyFrameTimestamps, videoPacketTimeBase, audioPacketTimeBase, pictureTimeBase,
-                    samplesTimeBase, audioFrameSize, averageFrameRate);
+            return new MediaInfo(keyFrameTimestamps, audioSamplesInfoList, videoPictureInfoList, videoPacketTimeBase,
+                    audioPacketTimeBase, pictureTimeBase, samplesTimeBase, audioFrameSize, averageFrameRate);
 
         } finally {
             if (audioCoder != null && audioCoder.isOpen())

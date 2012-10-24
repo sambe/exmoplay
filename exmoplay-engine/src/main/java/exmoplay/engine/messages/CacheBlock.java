@@ -13,7 +13,7 @@ public class CacheBlock implements Comparable<CacheBlock> {
         this.frames = frames;
     }
 
-    public final int index;
+    public int index;
     public final CachedFrame[] frames;
 
     public long baseSeqNum;

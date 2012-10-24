@@ -30,9 +30,11 @@ import com.xuggle.xuggler.IVideoResampler;
 import com.xuggle.xuggler.video.ConverterFactory;
 import com.xuggle.xuggler.video.IConverter;
 
+import exmoplay.access.MediaInfo.AudioSamplesInfo;
+
 public class XugglerMediaInputStream {
-    private static final boolean DEBUG = false;
-    private static final boolean TRACE = false;
+    private static final boolean DEBUG = true;
+    private static final boolean TRACE = true;
 
     private final File file;
 
@@ -61,7 +63,7 @@ public class XugglerMediaInputStream {
     private long intendedAudioPosition = -1;
     private long intendedVideoPosition = -1;
     private long officialVideoPosition = 0;
-    private long targetAudioPacket = -1;
+    private long targetAudioTimestamp = -1;
     private int targetAudioBytePos = -1;
     private IPacket audioPacketReadPartially = null;
     private IPacket videoPacketReadPartially = null;
@@ -279,7 +281,9 @@ public class XugglerMediaInputStream {
 
     public void readFrame(MediaFrame mf) {
         mf.endOfMedia = false;
-        //long DEBUG_startMillis = System.currentTimeMillis();
+        long DEBUG_startMillis = 0;
+        if (DEBUG)
+            DEBUG_startMillis = System.currentTimeMillis();
         int skippedVideoFrames = 0;
         int skippedAudioFrames = 0;
 
@@ -287,7 +291,7 @@ public class XugglerMediaInputStream {
         int audioBytePos = 0;
 
         boolean audioComplete = false;
-        while (!audioComplete) {
+        while (!audioComplete && targetAudioTimestamp != -1) {
             IPacket audioPacket = null;
             if (audioPacketReadPartially != null) {
                 audioPacket = audioPacketReadPartially;
@@ -313,6 +317,11 @@ public class XugglerMediaInputStream {
                     }
                     int bytesDecoded = audioCoder.decodeAudio(samples, audioPacket, audioPacketOffset);
                     if (bytesDecoded < 0) {
+                        // TODO recovery doesn't seem to work here, maybe would require to filter out this frame (finding them in MediaAnalyzer)
+                        if (bytesDecoded == MediaAnalyzer.MP2_HEADER_MISSING) {
+                            audioPacketOffset = audioPacket.getSize(); // skip processing of packet
+                            break;
+                        }
                         throw new IllegalStateException("could not decode audio. Error code " + bytesDecoded);
                     }
                     audioPacketOffset += bytesDecoded;
@@ -325,10 +334,10 @@ public class XugglerMediaInputStream {
                 }
 
                 if (samples.isComplete()) {
-                    long samplesNum = (long) Math.round(samples.getTimeStamp() * mediaInfo.samplesTimeBase
-                            / audioPacketTimeStep);
+                    //long samplesNum = (long) Math.round(samples.getTimeStamp() * mediaInfo.samplesTimeBase
+                    //        / audioPacketTimeStep);
                     // first skip audio samples that are before the "intendedPosition" (position that was set with setPosition)
-                    if (intendedAudioPosition != -1 && samplesNum < targetAudioPacket) { //packetTimestamp + (long) (1.5 * frameTime) < intendedPosition)
+                    if (intendedAudioPosition != -1 && samples.getTimeStamp() < targetAudioTimestamp) {
                         // reset buffer, so it can start filling again (because we're skipping until intendedPosition)
                         //System.out.println("Skipping " + samples.getNumSamples() + " audio samples. ("
                         //        + samplesTimestamp + ")");
@@ -350,6 +359,14 @@ public class XugglerMediaInputStream {
                     mf.audio.size = audioFrameSize;
                     byte[] dest = mf.audio.audioData;
                     int bytesToCopy = Math.min(samples.getSize() - samplesBytePos, audioFrameSize - audioBytePos);
+                    if (bytesToCopy < 0) {
+                        System.err.println("ERROR: XugglerMediaInputStream: audio bytesToCopy < 0");
+                        System.err.println("samples.getSize() = " + samples.getSize());
+                        System.err.println("samplesBytePos = " + samplesBytePos);
+                        System.err.println("audioFrameSize = " + audioFrameSize);
+                        System.err.println("audioBytePos = " + audioBytePos);
+                        bytesToCopy = 0;
+                    }
                     try {
                         samples.get(samplesBytePos, dest, audioBytePos, bytesToCopy);
                     } catch (IndexOutOfBoundsException e) {
@@ -364,8 +381,7 @@ public class XugglerMediaInputStream {
                         break;
                     } else {
                         if (samplesBytePos != samples.getSize())
-                            throw new IllegalStateException(
-                                    "internal inconsistency: target array not full, but still uncopied bytes available");
+                            System.err.println("ERROR: internal inconsistency: target array not full, but still uncopied bytes available");
                         samplesBytePos = 0; // because it has been fully copied over
                     }
                 }
@@ -373,6 +389,13 @@ public class XugglerMediaInputStream {
                 // means that the packet was completely read (see if/else further up)
                 if (audioPacketOffset == 0)
                     break;
+            }
+        }
+
+        // clear rest of audio samples in case not enough was written.
+        if (!audioComplete) {
+            for (int i = audioBytePos; i < mf.audio.size; i++) {
+                mf.audio.audioData[i] = 0;
             }
         }
 
@@ -484,8 +507,10 @@ public class XugglerMediaInputStream {
             System.out.println("TRACE: skipped video frames: " + skippedVideoFrames + "; skipped audio frames: "
                     + skippedAudioFrames);
         }
-        //long DEBUG_endMillis = System.currentTimeMillis();
-        //System.err.println("TRACE: read media frame in " + (DEBUG_endMillis - DEBUG_startMillis) + "ms");
+        if (DEBUG) {
+            long DEBUG_endMillis = System.currentTimeMillis();
+            System.err.println("DEBUG: read media frame in " + (DEBUG_endMillis - DEBUG_startMillis) + "ms");
+        }
     }
 
     private int calculateAudioFrameSize(long millis) {
@@ -510,12 +535,13 @@ public class XugglerMediaInputStream {
         long targetMicros = mediaInfo.findRelevantKeyframeTimestamp(micros);
 
         // seek in microseconds (try to find the last position before or at the specified position)
-        long minTimestamp = Math.max(0, targetMicros - 5000000);
+        long minTimestamp = Math.max(0, targetMicros - 10000000);
         long targetTimestamp = targetMicros;
         long maxTimestamp = targetMicros;
         long statusCode = container.seekKeyFrame(-1, minTimestamp, targetTimestamp, maxTimestamp, 0);
         if (statusCode < 0)
-            throw new IllegalStateException("Seek to position " + millis + "ms failed with code " + statusCode
+            throw new IllegalStateException("Seek to position " + millis + "ms (actual " + targetTimestamp
+                    + " microseconds)failed with code " + statusCode
                     + " in file " + file);
         if (videoPacketReadPartially != null)
             videoPacketReadPartially.delete();
@@ -538,9 +564,12 @@ public class XugglerMediaInputStream {
         intendedVideoPosition = millis;
         officialVideoPosition = millis;
         int audioFrameSize = mediaInfo.audioFrameSize;
-        long targetSample = (long) Math.round(finalFrame * exactAudioFramesSampleNum) * bytesPerSample;
-        targetAudioPacket = (long) Math.floor(targetSample / audioFrameSize);
-        targetAudioBytePos = (int) (targetSample % audioFrameSize);
+        long targetSamplePos = (long) Math.round(finalFrame * exactAudioFramesSampleNum) * bytesPerSample;
+        AudioSamplesInfo targetSample = mediaInfo.findAudioSamplesInfoContainingOffset(targetSamplePos);
+        targetAudioTimestamp = targetSample.timestamp; //(long) Math.floor(targetSample / audioFrameSize);
+        targetAudioBytePos = (int) (targetSamplePos - targetSample.samplesOffset); //(int) (targetSample % audioFrameSize);
+        if (targetAudioBytePos > targetSample.samplesLength)
+            targetAudioTimestamp = -1;
         return millis;
     }
 

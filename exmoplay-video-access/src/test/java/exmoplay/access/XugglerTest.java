@@ -32,7 +32,8 @@ public class XugglerTest {
     //File file = new File("/home/sberner/Desktop/10-31.03.09.flv");
     //File file = new File("/home/sberner/media/salsavids/m2/MOV00357.MP4");
     //File file = new File("/home/sberner/Desktop/10-07.04.09.flv");
-    File file = new File("/home/sberner/media/salsavids/m2/MOV00356.MP4");
+    //File file = new File("/home/sberner/media/salsavids/m2/MOV00356.MP4");
+    File file = new File("/home/samuel/Desktop/Wildlife.wmv");
 
     //File file = new File("/home/sberner/media/salsavids/salsabrosa/10-08.07.08_.flv");
 
@@ -338,6 +339,38 @@ public class XugglerTest {
             if (bytesDecoded < 0)
                 throw new RuntimeException("error decoding bytes");
             offset += bytesDecoded;
+        }
+    }
+
+    @Test
+    public void testXugglerTest() {
+        for (int i = 0; i < 40; i++) {
+            long target = i * 1000000;
+            long minTarget = Math.max(0, target - 10000000);
+            container.seekKeyFrame(-1, minTarget, target, target, 0);
+
+            boolean videoFound = false, audioFound = false;
+            double videoTimestamp = Double.NaN, audioTimestamp = Double.NaN;
+            while (!videoFound || !audioFound) {
+                IPacket packet = IPacket.make();
+                int status = container.readNextPacket(packet);
+                if (status < 0)
+                    break;
+                double timestamp = packet.getTimeStamp()
+                        * packet.getTimeBase().getValue();
+                if (packet.getStreamIndex() == videoStream.getIndex()) {
+                    if (!videoFound) {
+                        videoFound = true;
+                        videoTimestamp = timestamp;
+                    }
+                } else if (packet.getStreamIndex() == audioStream.getIndex()) {
+                    if (!audioFound) {
+                        audioFound = true;
+                        audioTimestamp = timestamp;
+                    }
+                }
+            }
+            System.out.println((i) + ", " + audioTimestamp + ", " + videoTimestamp);
         }
     }
 }

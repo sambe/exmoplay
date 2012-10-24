@@ -6,10 +6,12 @@ package exmoplay.engine;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.Set;
 
 import exmoplay.engine.actorframework.Actor;
 import exmoplay.engine.messages.CacheBlock;
@@ -25,19 +27,23 @@ public class FrameCache extends Actor {
     private static final boolean TRACE = false;
 
     // TODO do timing tests to find the optimal value
-    private static final int BLOCK_SIZE = 8;
-    private static final int N_CACHE_BLOCKS = 12;
+    private static final int CACHE_MAX_BYTES = 250 * 1024 * 1024;
+    private static final int BLOCK_LENGTH = 8;
+    private static final int MIN_N_CACHE_BLOCKS = 3;
+    private static final int DEFAULT_N_CACHE_BLOCKS = 12;
     private static final int CACHE_MIN_RESERVE = 10;
     private static final int CACHE_MAX_RESERVE = 10;
 
     private final FrameFetcher frameFetcher;
 
-    private final CacheBlock[] cacheBlocks;
+    private CacheBlock[] cacheBlocks;
     private final Map<Long, CacheBlock> blockByBaseSeqNum = new HashMap<Long, CacheBlock>();
     private final PriorityQueue<CacheBlock> unusedLRU = new PriorityQueue<CacheBlock>();
 
     private final Queue<FrameRequest> queuedRequests = new LinkedList<FrameRequest>();
     private FrameRequest requestForIdleProcessing = null;
+
+    private boolean firstFrameFetched = false;
 
     // actor responsibilities
     // 1) answer requests for frames (by number/?)
@@ -50,9 +56,9 @@ public class FrameCache extends Actor {
         super(errorHandler, -1, Priority.NORM);
         this.frameFetcher = frameFetcher;
 
-        cacheBlocks = new CacheBlock[N_CACHE_BLOCKS];
+        cacheBlocks = new CacheBlock[DEFAULT_N_CACHE_BLOCKS];
         for (int i = 0; i < cacheBlocks.length; i++) {
-            CachedFrame[] frames = new CachedFrame[BLOCK_SIZE];
+            CachedFrame[] frames = new CachedFrame[BLOCK_LENGTH];
             for (int j = 0; j < frames.length; j++) {
                 frames[j] = new CachedFrame(i, this);
                 frames[j].seqNum = -1;
@@ -86,12 +92,7 @@ public class FrameCache extends Actor {
         //   - mark in cache and send to requester
         else if (message instanceof CacheBlock) {
             CacheBlock block = (CacheBlock) message;
-            if (block.usageCount == 0) {
-                addUnusedToCache(block);
-            } else {
-                block.state = CachedFrameState.IN_USE;
-            }
-            processQueuedRequests(queuedRequests);
+            handleCacheBlock(block);
         }
 
         // recycling bag
@@ -115,13 +116,30 @@ public class FrameCache extends Actor {
         }
     }
 
+    private void handleCacheBlock(CacheBlock block) {
+        if (!firstFrameFetched) {
+            firstFrameFetched = true;
+            // calculate ideal cache size
+            int frameByteSize = block.frames[0].frame.getSizeInBytes();
+            if (frameByteSize * BLOCK_LENGTH * DEFAULT_N_CACHE_BLOCKS > CACHE_MAX_BYTES)
+                resizeCacheIfStillPossible(frameByteSize);
+        }
+
+        if (block.usageCount == 0) {
+            addUnusedToCache(block);
+        } else {
+            block.state = CachedFrameState.IN_USE;
+        }
+        processQueuedRequests(queuedRequests);
+    }
+
     private void handleFrameRequest(FrameRequest request) {
         if (request.seqNum < 0) {
             throw new IllegalArgumentException("Request for invalid seq num: " + request.seqNum);
         }
         //DEBUG_cacheCounter.lend(request.seqNum, request.usageCount);
 
-        long seqNumOffset = request.seqNum % BLOCK_SIZE;
+        long seqNumOffset = request.seqNum % BLOCK_LENGTH;
         long baseSeqNum = request.seqNum - seqNumOffset;
         CacheBlock block = blockByBaseSeqNum.get(baseSeqNum);
         // if cache contains frame, take it from cache
@@ -174,7 +192,7 @@ public class FrameCache extends Actor {
     }
 
     private void prefetchFrame(long baseSeqNum) {
-        if (baseSeqNum % BLOCK_SIZE != 0) {
+        if (baseSeqNum % BLOCK_LENGTH != 0) {
             throw new IllegalArgumentException("not a base seq num, has offset: " + baseSeqNum);
         }
         if (!blockByBaseSeqNum.containsKey(baseSeqNum)) {
@@ -186,7 +204,7 @@ public class FrameCache extends Actor {
     private void processQueuedRequests(Queue<FrameRequest> queuedRequests) {
         while (!queuedRequests.isEmpty()) {
             FrameRequest fr = queuedRequests.peek();
-            int seqNumOffset = (int) (fr.seqNum % BLOCK_SIZE);
+            int seqNumOffset = (int) (fr.seqNum % BLOCK_LENGTH);
             long baseSeqNum = fr.seqNum - seqNumOffset;
             CacheBlock block = blockByBaseSeqNum.get(baseSeqNum);
             if (block == null) {
@@ -267,6 +285,35 @@ public class FrameCache extends Actor {
         CacheBlock block = unusedLRU.poll();
         //System.err.println("DEBUG: removed cache block " + block.index + ", usageCount: " + block.usageCount);
         return block;
+    }
+
+    private void resizeCacheIfStillPossible(int frameByteSize) {
+        // maximum number of blocks that go below CACHE_MAX_BYTES, but always at least 3 (for correct functioning of the engine)
+        int acceptableNCacheBlocks = Math.max(MIN_N_CACHE_BLOCKS,
+                (int) Math.floor(CACHE_MAX_BYTES / (frameByteSize * BLOCK_LENGTH)));
+        int blocksToRemove = DEFAULT_N_CACHE_BLOCKS - acceptableNCacheBlocks;
+        Set<CacheBlock> removedBlocks = new HashSet<CacheBlock>();
+        for (int i = 0; i < blocksToRemove; i++) {
+            CacheBlock b = unusedLRU.peek();
+            if (b == null || b.state != CachedFrameState.EMPTY)
+                break;
+            removedBlocks.add(unusedLRU.remove());
+        }
+
+        // resize existing blocks array
+        if (removedBlocks.size() > 0) {
+            CacheBlock[] newBlocks = new CacheBlock[cacheBlocks.length - removedBlocks.size()];
+            int newBlocksIndex = 0;
+            for (int i = 0; i < cacheBlocks.length; i++) {
+                CacheBlock cb = cacheBlocks[i];
+                if (!removedBlocks.contains(cb)) {
+                    newBlocks[newBlocksIndex] = cb;
+                    cb.index = newBlocksIndex;
+                    newBlocksIndex++;
+                }
+            }
+            cacheBlocks = newBlocks;
+        }
     }
 
     /*private CacheCounter DEBUG_cacheCounter = new CacheCounter();
