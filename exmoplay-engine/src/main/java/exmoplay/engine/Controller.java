@@ -32,7 +32,7 @@ public class Controller extends Actor {
     private static final int DEFAULT_PREFETCH_SIZE = 5;
     private static final int MAX_EXPECTED_PREFETCH_SIZE = DEFAULT_PREFETCH_SIZE * 4;
     private static final int USAGE_COUNT = 2;
-    private static final int SYNC_OFFSET = 700; //250; TODO find out why this magic constant
+    private static final int SYNC_OFFSET = 0; //700; //250; TODO find out why this magic constant
     private static final double MIN_VALID_SPEED = 1.0 / 40.0;
     private static final double ANIMATION_SPEED = 2.0;
 
@@ -166,7 +166,8 @@ public class Controller extends Actor {
 
             engine.stop();
 
-            audioRenderer.stop();
+            if (audioRenderer != null)
+                audioRenderer.stop();
         }
 
         frameFetcher = new FrameFetcher(errorHandler, message.videoFile, message.mediaInfo);
@@ -179,8 +180,10 @@ public class Controller extends Actor {
         frameFetcher.send(new MediaInfoRequest(receiver));
         final MediaInfoResponse mir = (MediaInfoResponse) receiver.waitForMessage();
 
-        audioRenderer = new AudioRenderer(errorHandler, mir.audioFormat, this);
-        audioRenderer.start();
+        if (mir.audioFormat != null) {
+            audioRenderer = new AudioRenderer(errorHandler, mir.audioFormat, this);
+            audioRenderer.start();
+        }
         videoFormat = mir.videoFormat;
 
         duration = mir.duration;
@@ -534,7 +537,7 @@ public class Controller extends Actor {
                     System.out.println("TRACE: " + frame.seqNum + ": added to queued frames");
                 }
                 queuedFrames.add(frame);
-                if (!engineCons.mute) {
+                if (!engineCons.mute && audioRenderer != null) {
                     audioRenderer.send(frame);
                 } else {
                     frame.recycle();
@@ -548,7 +551,7 @@ public class Controller extends Actor {
 
         private void startFetching(long positionSeqNum) {
             prefetch(positionSeqNum);
-            if (!engineCons.mute) {
+            if (!engineCons.mute && audioRenderer != null) {
                 audioRenderer.send(new SetSpeed(engineCons.playerSpeed));
                 audioRenderer.send(new ControlCommand(Command.START));
             }
@@ -579,7 +582,7 @@ public class Controller extends Actor {
         }
 
         public void resetFetching() {
-            if (!engineCons.mute) {
+            if (!engineCons.mute && audioRenderer != null) {
                 audioRenderer.send(new ControlCommand(Command.STOP));
                 audioRenderer.send(new ControlCommand(Command.FLUSH));
             }

@@ -19,6 +19,7 @@ import com.xuggle.xuggler.IAudioSamples;
 import com.xuggle.xuggler.IAudioSamples.Format;
 import com.xuggle.xuggler.ICodec;
 import com.xuggle.xuggler.IContainer;
+import com.xuggle.xuggler.IError;
 import com.xuggle.xuggler.IPacket;
 import com.xuggle.xuggler.IPixelFormat;
 import com.xuggle.xuggler.IPixelFormat.Type;
@@ -41,7 +42,9 @@ public class XugglerMediaInputStream {
     private final IContainer container;
     private IStream audioStream;
     private IStream videoStream;
-    private final IStreamCoder originalAudioCoder;
+    private int audioStreamIndex = -1;
+    private int videoStreamIndex = -1;
+    private IStreamCoder originalAudioCoder;
     private final IStreamCoder originalVideoCoder;
     private IStreamCoder audioCoder;
     private IStreamCoder videoCoder;
@@ -182,6 +185,7 @@ public class XugglerMediaInputStream {
                     System.out.println("format: " + coder.getCodec().getLongName());
                 }
                 audioStream = stream;
+                audioStreamIndex = i;
             } else if (coder.getCodecType() == ICodec.Type.CODEC_TYPE_VIDEO) {
                 if (DEBUG) {
                     System.out.println("width: " + coder.getWidth());
@@ -189,34 +193,46 @@ public class XugglerMediaInputStream {
                     System.out.println("format: " + coder.getCodec().getLongName());
                 }
                 videoStream = stream;
+                videoStreamIndex = i;
             } else {
                 // ignore other streams
             }
         }
 
-        if (audioStream == null)
-            throw new BadVideoException("no audio stream found");
+        // There are videos without audio
+        //if (audioStream == null)
+        //    throw new BadVideoException("no audio stream found");
         if (videoStream == null)
             throw new BadVideoException("no video stream found");
 
-        originalAudioCoder = audioStream.getStreamCoder();
+        if (audioStream != null)
+            originalAudioCoder = audioStream.getStreamCoder();
         originalVideoCoder = videoStream.getStreamCoder();
 
         initDecoders();
 
-        audioFormat = createJavaSoundFormat(originalAudioCoder);
         videoFormat = createVideoFormat(originalVideoCoder, mediaInfo.videoFrameRate);
-        exactAudioFramesSampleNum = originalAudioCoder.getSampleRate() / videoFormat.getFrameRate();
-        audioFramesSampleNum = (long) Math.ceil(exactAudioFramesSampleNum);
         frameTime = 1000.0 / videoFormat.getFrameRate();
-        bytesPerSample = audioFormat.getSampleSizeInBits() / 8 * audioFormat.getChannels();
 
-        int audioPacketSize = mediaInfo.audioFrameSize;
-        int audioSampleRate = originalAudioCoder.getSampleRate();
-        audioPacketTimeStep = (double) audioPacketSize / bytesPerSample / (double) audioSampleRate;
+        if (audioStream != null) {
+            audioFormat = createJavaSoundFormat(originalAudioCoder);
+            exactAudioFramesSampleNum = originalAudioCoder.getSampleRate() / videoFormat.getFrameRate();
+            audioFramesSampleNum = (long) Math.ceil(exactAudioFramesSampleNum);
+            bytesPerSample = audioFormat.getSampleSizeInBits() / 8 * audioFormat.getChannels();
 
-        if (DEBUG) {
-            System.out.println("audio samples per video frame: " + audioFramesSampleNum);
+            int audioPacketSize = mediaInfo.audioFrameSize;
+            int audioSampleRate = originalAudioCoder.getSampleRate();
+            audioPacketTimeStep = (double) audioPacketSize / bytesPerSample / (double) audioSampleRate;
+
+            if (DEBUG) {
+                System.out.println("audio samples per video frame: " + audioFramesSampleNum);
+            }
+        } else {
+            audioFormat = null;
+            exactAudioFramesSampleNum = 0;
+            audioFramesSampleNum = 0;
+            bytesPerSample = 0;
+            audioPacketTimeStep = 0.0;
         }
 
         // initialize resampler
@@ -239,9 +255,12 @@ public class XugglerMediaInputStream {
                 videoCoder.getWidth(), videoCoder.getHeight());
 
         // initialize buffers
-        samples = IAudioSamples.make(mediaInfo.audioFrameSize, audioCoder.getChannels());
+        if (audioStream != null)
+            samples = IAudioSamples.make(mediaInfo.audioFrameSize, audioCoder.getChannels());
+        else
+            samples = null;
 
-        packetSource = new PacketSource(container, audioStream.getIndex(), videoStream.getIndex());
+        packetSource = new PacketSource(container, audioStreamIndex, videoStream.getIndex());
     }
 
     private void initDecoders() {
@@ -250,13 +269,14 @@ public class XugglerMediaInputStream {
         if (videoCoder != null && videoCoder.isOpen())
             videoCoder.close();
 
-        audioCoder = IStreamCoder.make(Direction.DECODING, originalAudioCoder);
+        if (originalAudioCoder != null) {
+            audioCoder = IStreamCoder.make(Direction.DECODING, originalAudioCoder);
+            int audioStreamOpenResultCode = audioCoder.open(null, null);
+            if (audioStreamOpenResultCode < 0)
+                throw new IllegalStateException("Could not open audio stream (error " + audioStreamOpenResultCode + ")");
+        }
+
         videoCoder = IStreamCoder.make(Direction.DECODING, originalVideoCoder);
-
-        int audioStreamOpenResultCode = audioCoder.open(null, null);
-        if (audioStreamOpenResultCode < 0)
-            throw new IllegalStateException("Could not open audio stream (error " + audioStreamOpenResultCode + ")");
-
         int videoStreamOpenResultCode = videoCoder.open(null, null);
         if (videoStreamOpenResultCode < 0)
             throw new IllegalStateException("Could not open video stream (error " + videoStreamOpenResultCode + ")");
@@ -469,9 +489,12 @@ public class XugglerMediaInputStream {
                         if (videoResampler != null) {
                             // we must resample
                             newPic = mf.video.videoPicture;
-                            if (videoResampler.resample(newPic, picture) < 0)
+                            int errorCode = videoResampler.resample(newPic, picture);
+                            if (errorCode < 0) {
+                                IError error = IError.make(errorCode);
                                 throw new RuntimeException("could not resample video from: "
-                                        + file);
+                                        + file + ", due to: " + error.getDescription() + " (" + errorCode + ")");
+                            }
                         } else {
                             newPic = picture;
                         }
@@ -560,16 +583,18 @@ public class XugglerMediaInputStream {
         //emptyDecoders(); did not work, now doing the following instead
         initDecoders();
         samplesBytePos = 0;
-        intendedAudioPosition = millis;
         intendedVideoPosition = millis;
         officialVideoPosition = millis;
-        int audioFrameSize = mediaInfo.audioFrameSize;
-        long targetSamplePos = (long) Math.round(finalFrame * exactAudioFramesSampleNum) * bytesPerSample;
-        AudioSamplesInfo targetSample = mediaInfo.findAudioSamplesInfoContainingOffset(targetSamplePos);
-        targetAudioTimestamp = targetSample.timestamp; //(long) Math.floor(targetSample / audioFrameSize);
-        targetAudioBytePos = (int) (targetSamplePos - targetSample.samplesOffset); //(int) (targetSample % audioFrameSize);
-        if (targetAudioBytePos > targetSample.samplesLength)
-            targetAudioTimestamp = -1;
+        if (audioStream != null) {
+            intendedAudioPosition = millis;
+            int audioFrameSize = mediaInfo.audioFrameSize;
+            long targetSamplePos = (long) Math.round(finalFrame * exactAudioFramesSampleNum) * bytesPerSample;
+            AudioSamplesInfo targetSample = mediaInfo.findAudioSamplesInfoContainingOffset(targetSamplePos);
+            targetAudioTimestamp = targetSample.timestamp; //(long) Math.floor(targetSample / audioFrameSize);
+            targetAudioBytePos = (int) (targetSamplePos - targetSample.samplesOffset); //(int) (targetSample % audioFrameSize);
+            if (targetAudioBytePos > targetSample.samplesLength)
+                targetAudioTimestamp = -1;
+        }
         return millis;
     }
 

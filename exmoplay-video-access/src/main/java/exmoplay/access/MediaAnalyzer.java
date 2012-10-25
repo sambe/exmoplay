@@ -68,8 +68,10 @@ public class MediaAnalyzer {
                 }
             }
 
-            if (audioCoder.open(null, null) < 0)
-                throw new RuntimeException("error opening audio stream coder");
+            if (audioCoder != null) {
+                if (audioCoder.open(null, null) < 0)
+                    throw new RuntimeException("error opening audio stream coder");
+            }
             if (videoCoder.open(null, null) < 0)
                 throw new RuntimeException("error opening video stream coder");
 
@@ -134,10 +136,12 @@ public class MediaAnalyzer {
                 IStreamCoder audioDecoder = null;
                 IStreamCoder videoDecoder = null;
                 try {
-                    audioDecoder = IStreamCoder.make(Direction.DECODING, audioCoder);
+                    if (audioCoder != null) {
+                        audioDecoder = IStreamCoder.make(Direction.DECODING, audioCoder);
+                        if (audioDecoder.open(null, null) < 0)
+                            throw new RuntimeException("error opening audio stream decoder");
+                    }
                     videoDecoder = IStreamCoder.make(Direction.DECODING, videoCoder);
-                    if (audioDecoder.open(null, null) < 0)
-                        throw new RuntimeException("error opening audio stream decoder");
                     if (videoDecoder.open(null, null) < 0)
                         throw new RuntimeException("error opening video stream decoder");
 
@@ -147,7 +151,9 @@ public class MediaAnalyzer {
 
                     boolean audioComplete = false;
                     boolean videoComplete = false;
-                    IAudioSamples audioSamples = IAudioSamples.make(4096, audioCoder.getChannels());
+                    IAudioSamples audioSamples = null;
+                    if (audioCoder != null)
+                        audioSamples = IAudioSamples.make(4096, audioCoder.getChannels());
                     IVideoPicture videoPicture = IVideoPicture.make(videoCoder.getPixelType(), videoCoder.getWidth(),
                             videoCoder.getHeight());
                     boolean firstAudioPacket = true;
@@ -170,7 +176,7 @@ public class MediaAnalyzer {
                             throw new RuntimeException("error reading packet: " + IError.make(error).getDescription());
                         }
 
-                        if (packet.getStreamIndex() == audioStreamIndex) {
+                        if (audioCoder != null && packet.getStreamIndex() == audioStreamIndex) {
                             if (firstAudioPacket) {
                                 audioPacketTimeBase = packet.getTimeBase().getValue();
                                 audioPacketTime = packet.getTimeStamp() * audioPacketTimeBase;
