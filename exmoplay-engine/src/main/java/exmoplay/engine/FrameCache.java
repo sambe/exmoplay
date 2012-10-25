@@ -31,8 +31,8 @@ public class FrameCache extends Actor {
     private static final int BLOCK_LENGTH = 8;
     private static final int MIN_N_CACHE_BLOCKS = 3;
     private static final int DEFAULT_N_CACHE_BLOCKS = 12;
-    private static final int CACHE_MIN_RESERVE = 10;
-    private static final int CACHE_MAX_RESERVE = 10;
+    private static final int CACHE_MIN_FREE = 2;
+    private static final int CACHE_MAX_FREE = 2;
 
     private final FrameFetcher frameFetcher;
 
@@ -108,7 +108,7 @@ public class FrameCache extends Actor {
 
         // if there is a request for idle processing, handle it instead of idling.
         FrameRequest r = requestForIdleProcessing;
-        if (r != null && unusedLRU.size() >= CACHE_MAX_RESERVE) {
+        if (r != null && unusedLRU.size() >= cacheBlocks.length - CACHE_MAX_FREE) {
             requestForIdleProcessing = null;
             handleFrameRequest(new FrameRequest(r.seqNum, r.usageCount, false, r.responseTo));
         } else {
@@ -165,7 +165,7 @@ public class FrameCache extends Actor {
                 throw new IllegalStateException("unexpected state of cachedFrame: " + block.state);
             }
         } else { // if cache does not contain frame, request at producer
-            if (request.onlyIfFreeResources && unusedLRU.size() < CACHE_MIN_RESERVE) {
+            if (request.onlyIfFreeResources && unusedLRU.size() < cacheBlocks.length - CACHE_MIN_FREE) {
                 // put on a special waiting slot, where it might be replaced by any later
                 requestForIdleProcessing = request;
                 if (TRACE) {
