@@ -9,6 +9,8 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 
+import javax.swing.SwingUtilities;
+
 import exmoplay.engine.actorframework.Actor;
 import exmoplay.engine.messages.CachedFrame;
 import exmoplay.engine.messages.CurrentScreen;
@@ -58,9 +60,14 @@ public class VideoRenderer extends Actor {
 
     }
 
-    private static void paintImageOnScreen(VideoScreen screen, Image image) {
-        Graphics2D g2d = (Graphics2D) screen.getGraphics();
-        paintImageOnScreen(g2d, screen, image);
+    private static void paintImageOnScreen(final VideoScreen screen, final Image image) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                Graphics2D g2d = (Graphics2D) screen.getGraphics();
+                paintImageOnScreen(g2d, screen, image);
+            }
+        });
     }
 
     public static void paintImageOnScreen(Graphics2D g2d, VideoScreen screen, Image image) {

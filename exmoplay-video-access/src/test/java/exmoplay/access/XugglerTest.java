@@ -33,7 +33,8 @@ public class XugglerTest {
     //File file = new File("/home/sberner/media/salsavids/m2/MOV00357.MP4");
     //File file = new File("/home/sberner/Desktop/10-07.04.09.flv");
     //File file = new File("/home/sberner/media/salsavids/m2/MOV00356.MP4");
-    File file = new File("/home/samuel/Desktop/Wildlife.wmv");
+    //File file = new File("/home/samuel/Desktop/Wildlife.wmv");
+    File file = new File("/home/sberner/media/films/101001_01_EFG_Unternehmensfilm_COM_960x540.wmv");
 
     //File file = new File("/home/sberner/media/salsavids/salsabrosa/10-08.07.08_.flv");
 
@@ -343,7 +344,7 @@ public class XugglerTest {
     }
 
     @Test
-    public void testXugglerTest() {
+    public void testXugglerSeeking() {
         for (int i = 0; i < 40; i++) {
             long target = i * 1000000;
             long minTarget = Math.max(0, target - 10000000);

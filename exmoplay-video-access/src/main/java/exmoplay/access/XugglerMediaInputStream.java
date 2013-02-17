@@ -32,6 +32,7 @@ import com.xuggle.xuggler.video.ConverterFactory;
 import com.xuggle.xuggler.video.IConverter;
 
 import exmoplay.access.MediaInfo.AudioSamplesInfo;
+import exmoplay.access.MediaInfo.VideoPictureInfo;
 
 public class XugglerMediaInputStream {
     private static final boolean DEBUG = true;
@@ -66,6 +67,7 @@ public class XugglerMediaInputStream {
     private long intendedAudioPosition = -1;
     private long intendedVideoPosition = -1;
     private long officialVideoPosition = 0;
+    private long targetVideoTimestamp = -1;
     private long targetAudioTimestamp = -1;
     private int targetAudioBytePos = -1;
     private IPacket audioPacketReadPartially = null;
@@ -427,7 +429,7 @@ public class XugglerMediaInputStream {
 
         boolean videoComplete = false;
 
-        while (!videoComplete) {
+        while (!videoComplete && targetVideoTimestamp != -1) {
             IPacket videoPacket;
             if (videoPacketReadPartially != null) {
                 videoPacket = videoPacketReadPartially;
@@ -465,10 +467,11 @@ public class XugglerMediaInputStream {
                         // FIXME for some reason the time base of either packet or picture is wrong by a factor of 10
                         //       picture 1.133333 <-- wrong
                         //       packet 0.135 <-- correct
-                        long pictureTimestamp = (long) (picture.getTimeStamp() * mediaInfo.pictureTimeBase * 1000L);
+                        //long pictureTimestamp = (long) (picture.getTimeStamp() * mediaInfo.pictureTimeBase * 1000L);
 
                         // first skip video frames that are before the "intendedPosition" (position that was set with setPosition)
-                        if (intendedVideoPosition != -1 && pictureTimestamp + frameTime / 2 < intendedVideoPosition) {
+                        //if (intendedVideoPosition != -1 && pictureTimestamp + frameTime / 2 < intendedVideoPosition) {
+                        if (intendedVideoPosition != -1 && picture.getTimeStamp() < targetVideoTimestamp) {
                             // reset buffer (because we're skipping frames until intendedPosition)
                             //System.out.println("Skipping a video picture. (" + pictureTimestamp + ")");
                             //picture.setComplete(false, videoCoder.getPixelType(), videoCoder.getWidth(),
@@ -576,8 +579,13 @@ public class XugglerMediaInputStream {
         videoPacketOffset = 0;
         //long initialFrame = (long) Math.floor(targetMicros / 1000000.0 * videoFormat.getFrameRate());
         long finalFrame = (long) Math.round(millis / 1000.0 * videoFormat.getFrameRate());
+        VideoPictureInfo videoInfo = mediaInfo.findVideoPictureInfoByFrameNumber(finalFrame);
+        if (videoInfo != null)
+            targetVideoTimestamp = videoInfo.timestamp;
+        else
+            targetVideoTimestamp = -1;
         //targetVideoFramesToSkip = (int) (finalFrame - initialFrame);
-        double exactFrameTime = 1000.0 * finalFrame / (double) videoFormat.getFrameRate();
+        double exactFrameTime = 1000.0 * finalFrame / videoFormat.getFrameRate();
 
         packetSource.reset();
         //emptyDecoders(); did not work, now doing the following instead

@@ -410,6 +410,8 @@ public class Controller extends Actor {
         }
 
         private void sendFetchRequest(long seqNum, boolean onlyIfFreeResources) {
+            if (seqNum < 0)
+                throw new IllegalArgumentException("Request for invalid seq num: " + seqNum);
             frameCache.send(new FrameRequest(seqNum, USAGE_COUNT, onlyIfFreeResources, Controller.this));
         }
 

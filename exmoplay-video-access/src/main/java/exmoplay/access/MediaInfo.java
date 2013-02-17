@@ -70,6 +70,11 @@ public class MediaInfo {
             this.samplesOffset = samplesOffset;
             this.samplesLength = samplesLength;
         }
+
+        @Override
+        public String toString() {
+            return "(" + nr + ", " + timestamp + ", " + samplesOffset + ", " + samplesLength + ")";
+        }
     }
 
     public static class VideoPictureInfo {
@@ -81,6 +86,11 @@ public class MediaInfo {
             this.nr = nr;
             this.timestamp = timestamp;
             this.key = key;
+        }
+
+        @Override
+        public String toString() {
+            return "(" + nr + ", " + timestamp + ", " + key + ")";
         }
     }
 
@@ -96,9 +106,9 @@ public class MediaInfo {
         return audioSamplesInfoBySamplesOffset.get(key);
     }
 
-    public VideoPictureInfo findVideoPictureInfoByFrameNumber(int frameNr) {
+    public VideoPictureInfo findVideoPictureInfoByFrameNumber(long frameNr) {
         if (frameNr > videoPictureInfo.size())
             return null;
-        return videoPictureInfo.get(frameNr);
+        return videoPictureInfo.get((int) frameNr);
     }
 }
