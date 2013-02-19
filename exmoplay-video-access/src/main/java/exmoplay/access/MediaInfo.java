@@ -13,8 +13,8 @@ import java.util.TreeMap;
 public class MediaInfo {
 
     public final List<Long> keyFrameTimestamps;
-    public final List<AudioSamplesInfo> audioSamplesInfo;
-    public final List<VideoPictureInfo> videoPictureInfo;
+    public final CompressedFrameDirectory.Audio audioSamplesInfo;
+    public final CompressedFrameDirectory.Video videoPictureInfo;
     public final double videoPacketTimeBase;
     public final double audioPacketTimeBase;
     public final double pictureTimeBase;
@@ -23,13 +23,14 @@ public class MediaInfo {
     public final double videoFrameRate;
 
     private SortedMap<Long, AudioSamplesInfo> audioSamplesInfoBySamplesOffset;
+    private List<VideoPictureInfo> videoPictureInfoDecompressed;
 
-    public MediaInfo(List<Long> keyFrameTimestamps, List<AudioSamplesInfo> audioSamplesInfo,
-            List<VideoPictureInfo> videoPictureInfo, double videoPacketTimeBase, double audioPacketTimeBase,
+    public MediaInfo(List<Long> keyFrameTimestamps, CompressedFrameDirectory.Audio audioSamplesInfo,
+            CompressedFrameDirectory.Video videoPictureInfo, double videoPacketTimeBase, double audioPacketTimeBase,
             double pictureTimeBase, double samplesTimeBase, int audioFrameSize, double videoFrameRate) {
         this.keyFrameTimestamps = Collections.unmodifiableList(new ArrayList<Long>(keyFrameTimestamps));
-        this.audioSamplesInfo = Collections.unmodifiableList(new ArrayList<AudioSamplesInfo>(audioSamplesInfo));
-        this.videoPictureInfo = Collections.unmodifiableList(new ArrayList<VideoPictureInfo>(videoPictureInfo));
+        this.audioSamplesInfo = audioSamplesInfo;
+        this.videoPictureInfo = videoPictureInfo;
         this.videoPacketTimeBase = videoPacketTimeBase;
         this.audioPacketTimeBase = audioPacketTimeBase;
         this.pictureTimeBase = pictureTimeBase;
@@ -97,7 +98,7 @@ public class MediaInfo {
     public AudioSamplesInfo findAudioSamplesInfoContainingOffset(long offset) {
         if (audioSamplesInfoBySamplesOffset == null) {
             audioSamplesInfoBySamplesOffset = new TreeMap<Long, MediaInfo.AudioSamplesInfo>();
-            for (AudioSamplesInfo info : audioSamplesInfo) {
+            for (AudioSamplesInfo info : audioSamplesInfo.decompress()) {
                 audioSamplesInfoBySamplesOffset.put(info.samplesOffset, info);
             }
         }
@@ -107,8 +108,11 @@ public class MediaInfo {
     }
 
     public VideoPictureInfo findVideoPictureInfoByFrameNumber(long frameNr) {
-        if (frameNr > videoPictureInfo.size())
+        if (videoPictureInfoDecompressed == null) {
+            videoPictureInfoDecompressed = videoPictureInfo.decompress();
+        }
+        if (frameNr > videoPictureInfoDecompressed.size())
             return null;
-        return videoPictureInfo.get((int) frameNr);
+        return videoPictureInfoDecompressed.get((int) frameNr);
     }
 }

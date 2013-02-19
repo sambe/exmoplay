@@ -264,7 +264,11 @@ public class MediaAnalyzer {
             pictureTimeBase = 1.0 / (Math.round(1.0 / pictureTimeBase * 1000.0) / 1000.0);
             samplesTimeBase = 1.0 / (Math.round(1.0 / samplesTimeBase * 1000.0) / 1000.0);
 
-            return new MediaInfo(keyFrameTimestamps, audioSamplesInfoList, videoPictureInfoList, videoPacketTimeBase,
+            CompressedFrameDirectory.Audio compressedAudioSamplesInfo = CompressedFrameDirectory.compressAudio(audioSamplesInfoList);
+            CompressedFrameDirectory.Video compressedVideoPictureInfo = CompressedFrameDirectory.compressVideo(videoPictureInfoList);
+
+            return new MediaInfo(keyFrameTimestamps, compressedAudioSamplesInfo, compressedVideoPictureInfo,
+                    videoPacketTimeBase,
                     audioPacketTimeBase, pictureTimeBase, samplesTimeBase, audioFrameSize, averageFrameRate);
 
         } finally {

@@ -4,7 +4,6 @@
  */
 package exmoplay.access;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -17,8 +16,7 @@ public class MediaInfoTest {
     public void testFindRelevantKeyframeTimestamp() {
 
         List<Long> timestamps = Arrays.asList(0L, 800000L, 1600000L, 2400000L);
-        MediaInfo mi = new MediaInfo(timestamps, new ArrayList<MediaInfo.AudioSamplesInfo>(),
-                new ArrayList<MediaInfo.VideoPictureInfo>(), 0.0, 0.0, 0.0, 0.0,
+        MediaInfo mi = new MediaInfo(timestamps, null, null, 0.0, 0.0, 0.0, 0.0,
                 0, 0.0);
 
         Assert.assertEquals(0L, mi.findRelevantKeyframeTimestamp(-500000));
