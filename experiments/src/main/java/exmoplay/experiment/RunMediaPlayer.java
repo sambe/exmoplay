@@ -30,10 +30,11 @@ public class RunMediaPlayer {
         ControlBar controlBar = mediaPlayer.createControlBar();
         mediaPlayer.setActiveScreen(screen);
 
-        //File videoFile = new File("/home/sberner/Desktop/10-21.04.09.flv"); // audio out of sync (600ms ahead)
+        File videoFile = new File("/home/sberner/Desktop/10-21.04.09.flv"); // audio out of sync (600ms ahead)
         //File videoFile = new File("/home/sberner/media/salsavids/m2/MOV00356.MP4"); // audio out of sync (600ms ahead)
-        File videoFile = new File("/home/sberner/media/salsavids/m2/MOV00347.MP4"); // repeating segements of pictures after some time (e.g. 30 seconds)
+        //File videoFile = new File("/home/sberner/media/salsavids/m2/MOV00347.MP4"); // repeating segements of pictures after some time (e.g. 30 seconds)
         //File videoFile = new File("/home/samuel/Desktop/Wildlife.wmv"); // retrieval too slow, otherwise working fine, sync not easily testable
+        //File videoFile = new File("/home/samuel/Desktop/test2.mp4");
         //File videoFile = new File("/home/sberner/media/films/clips/GeorgeWBush.avi"); // audio out of sync (2000ms ahead)
         //File videoFile = new File("/home/sberner/media/films/clips/clinton-final-days.mov"); // audio only in fragments, most missing, finished way too early
         //File videoFile = new File("/home/sberner/media/films/clips/BushandBoredKid.avi"); // audio out of sync (2000ms ahead)

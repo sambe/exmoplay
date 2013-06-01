@@ -638,7 +638,7 @@ public class XugglerMediaInputStream {
     }
 
     public long getDuration() {
-        return container.getDuration();
+        return (long) (mediaInfo.numberOfVideoFrames / videoFormat.getFrameRate() * 1000000L);
     }
 
     public VideoFormat getVideoFormat() {

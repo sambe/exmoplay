@@ -17,7 +17,7 @@ public class MediaInfoTest {
 
         List<Long> timestamps = Arrays.asList(0L, 800000L, 1600000L, 2400000L);
         MediaInfo mi = new MediaInfo(timestamps, null, null, 0.0, 0.0, 0.0, 0.0,
-                0, 0.0);
+                0, 0.0, 0);
 
         Assert.assertEquals(0L, mi.findRelevantKeyframeTimestamp(-500000));
         Assert.assertEquals(0L, mi.findRelevantKeyframeTimestamp(0));

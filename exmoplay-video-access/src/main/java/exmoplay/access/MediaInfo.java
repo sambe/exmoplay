@@ -21,13 +21,15 @@ public class MediaInfo {
     public final double samplesTimeBase;
     public final int audioFrameSize;
     public final double videoFrameRate;
+    public final long numberOfVideoFrames;
 
     private SortedMap<Long, AudioSamplesInfo> audioSamplesInfoBySamplesOffset;
     private List<VideoPictureInfo> videoPictureInfoDecompressed;
 
     public MediaInfo(List<Long> keyFrameTimestamps, CompressedFrameDirectory.Audio audioSamplesInfo,
             CompressedFrameDirectory.Video videoPictureInfo, double videoPacketTimeBase, double audioPacketTimeBase,
-            double pictureTimeBase, double samplesTimeBase, int audioFrameSize, double videoFrameRate) {
+            double pictureTimeBase, double samplesTimeBase, int audioFrameSize, double videoFrameRate,
+            long numberOfVideoFrames) {
         this.keyFrameTimestamps = Collections.unmodifiableList(new ArrayList<Long>(keyFrameTimestamps));
         this.audioSamplesInfo = audioSamplesInfo;
         this.videoPictureInfo = videoPictureInfo;
@@ -37,6 +39,7 @@ public class MediaInfo {
         this.samplesTimeBase = samplesTimeBase;
         this.audioFrameSize = audioFrameSize;
         this.videoFrameRate = videoFrameRate;
+        this.numberOfVideoFrames = numberOfVideoFrames;
     }
 
     public long findRelevantKeyframeTimestamp(long targetValue) {

@@ -267,9 +267,12 @@ public class MediaAnalyzer {
             CompressedFrameDirectory.Audio compressedAudioSamplesInfo = CompressedFrameDirectory.compressAudio(audioSamplesInfoList);
             CompressedFrameDirectory.Video compressedVideoPictureInfo = CompressedFrameDirectory.compressVideo(videoPictureInfoList);
 
+            long durationInFrames = videoPictureInfoList.size();
+
             return new MediaInfo(keyFrameTimestamps, compressedAudioSamplesInfo, compressedVideoPictureInfo,
                     videoPacketTimeBase,
-                    audioPacketTimeBase, pictureTimeBase, samplesTimeBase, audioFrameSize, averageFrameRate);
+                    audioPacketTimeBase, pictureTimeBase, samplesTimeBase, audioFrameSize, averageFrameRate,
+                    durationInFrames);
 
         } finally {
             if (audioCoder != null && audioCoder.isOpen())
